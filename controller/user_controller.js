@@ -1,84 +1,85 @@
+// const { response } = require("express");
 const users = require("../model/user_model");
-const response = require("../response");
+const { generate } = require("../response");
 
-//Create
-exports.createUser = async (req) => {
+//create
+exports.createUser = async (message, callback) => {
+  let response;
   try {
-    const userCreate = new users({
-      role: req.body.role,
-      name: req.body.name,
-      isOnline: req.body.isOnline,
-    });
-    const saveUser = await userCreate.save();
-    return saveUser;
+    const newUser = new users(message);
+    const savedUser = await newUser.save();
+    response = generate(false, "User created successfully", savedUser);
   } catch (error) {
-    console.log(error.message);
+    response = generate(true, error.message);
+  }
+  if (callback) {
+    callback(response);
+  }
+};
+
+//getUserById
+exports.getUserById = async (userId) => {
+  try {
+    return await users.findById(userId);
+  } catch (error) {
     return null;
   }
 };
 
 //All user data
-exports.getAllUser = async (res) => {
+exports.getAllUser = async (callback) => {
+  let response;
   try {
     const user = await users.find();
-    res.send(user);
-    // return user;
+    response = generate(false, "User fetched successfully", user);
   } catch (error) {
-    res.send(error.message);
-    // return null;
+    response = generate(true, error.message);
+  }
+  if (callback) {
+    callback(response);
   }
 };
 
-//Show single user
-exports.getUserById = async (userId) => {
+//updatedUserData
+exports.updateUserData = async (userId, userData, callback) => {
+  let response;
   try {
-    const user = await users.findById(userId);
-    return user;
-  } catch (error) {
-    return null;
-  }
-};
-
-//Update user data
-exports.updateUserData = async (userId) => {
-  try {
-    const updateUsers = {
-      isOnline: true,
-    };
-
-    const updateUser = await users.findByIdAndUpdate(userId, updateUsers, {
+    const userUpdate = await users.findByIdAndUpdate(userId, userData, {
       new: true,
     });
-    return updateUser;
+    response = generate(false, "User updated successfully", userUpdate);
+  } catch (error) {
+    response = generate(true, error.message);
+  }
+  if (callback) {
+    callback(response);
+  }
+};
+
+//updatedIsOnline
+exports.updatedIsOnline = async (userId, flag) => {
+  try {
+    const userUpdate = await users.findByIdAndUpdate(userId, {
+      isOnline: flag,
+    });
+    console.log(userUpdate);
+    return userUpdate;
   } catch (error) {
     console.log(error.message);
     return null;
   }
 };
 
-//update
-exports.updateUser = async (userId) => {
+//deletedUser
+exports.deletedUser = async (userId, callback) => {
+  let response;
   try {
-    const updateUsers = {
-      isOnline: false,
-    };
-
-    const updateUser = await users.findByIdAndUpdate(userId, updateUsers, {
-      new: true,
-    });
-    return updateUser;
+    const userDelete = await users.findByIdAndDelete(userId);
+    response = generate(false, "User deleted successfully", userDelete);
   } catch (error) {
-    console.log(error.message);
-    return null;
+    response = generate(true, error.message);
   }
-};
-
-//Delete user data
-exports.deleteUserData = async (userId) => {
-  try {
-    const deleteUser = await users.findByIdAndDelete(userId);
-    return deleteUser;
-  } catch (error) {
-    return null;
+  if (callback) {
+    callback(response);
   }
 };

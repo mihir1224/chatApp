@@ -5,8 +5,10 @@ const socketIo = require("socket.io");
 const mongoose = require("mongoose");
 const { MongoClient } = require("mongodb");
 const usersControllers = require("../controller/user_controller");
-
-// const Filter = require("bad-words");
+const userModel = require("../model/user_model");
+const { use } = require("../routes/user_routes");
+const generate = require("../response");
+const { response } = require("express");
 
 //configure
 require("dotenv").config();
@@ -36,43 +38,53 @@ mongoose.connect(
 io.on("connection", async (socket) => {
   console.log("new connection");
 
-  let user = await usersControllers.getUserById(socket.handshake.query.userId);
-  console.log(user);
+  let user = await usersControllers.updatedIsOnline(
+    socket.handshake.query.userId,
+    true
+  );
 
-  if (user) {
-    let Users = await usersControllers.updateUserData(user._id);
-    console.log(Users);
-  } else {
-    console.log(false);
-  }
+  const eventArray = ["createUser", "fetchUserId", "updateUser", "deleteUser"];
 
-  if (user.role == "admin") {
-    let users = await usersControllers.getUserById(user._id);
-    console.log(users);
-    console.log("User can access");
-  } else {
-    console.log("User can't access");
-  }
-
-  // socket.emit("message", "welcome");
-  // socket.broadcast.emit("message", "A new user has joined!");
-  // });
-
-  socket.on("sendNotification", async (message, callback) => {
-    console.log("abcd");
-    if (message._id) {
-      io.emit("notification", message.data);
-      callback(message);
+  socket.use((event, next) => {
+    console.log(event);
+    if (eventArray.includes(event[0])) {
+      if (user.role === "admin") {
+        next();
+      } else {
+        if (
+          event[event.length - 1] &&
+          event[event.length - 1] == typeof Function
+        ) {
+          event[event.length - 1](generate.generate(true, "error"));
+        }
+      }
     } else {
-      console.log("frdefvdrsv");
+      next();
+    }
+  });
+
+  socket.on("createUser", usersControllers.createUser);
+  socket.on("fetchUserId", usersControllers.getAllUser);
+  socket.on("updateUser", usersControllers.updateUserData);
+  socket.on("deleteUser", usersControllers.deletedUser);
+
+  socket.on("sendNotification", async (message) => {
+    try {
+      let connectedUsers = await io.fetchSockets();
+
+      for (let i of connectedUsers) {
+        let getUserID = i.handshake.query.userId;
+        if (message._id.includes(getUserID)) {
+          i.emit("notification", message.data);
+        }
+      }
+    } catch (error) {
+      console.log(error.message);
     }
   });
 
   socket.on("disconnect", async () => {
-    let userUpdates = await usersControllers.updateUser(user._id);
-    console.log(userUpdates);
-
-    socket.broadcast.emit("message", "A user has left");
+    let userUpdates = await usersControllers.updatedIsOnline(user._id, false);
   });
 });
 
